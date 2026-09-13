@@ -1,14 +1,10 @@
-# Terraform AWS Multi-Environment Platform
+# Enterprise AWS Infrastructure Platform
 
-[![Infrastructure Validation](https://github.com/adeliusa486/terraform-aws-multi-env-platform/actions/workflows/validation.yml/badge.svg)](https://github.com/adeliusa486/terraform-aws-multi-env-platform/actions/workflows/validation.yml)
+A deterministic, multi-environment infrastructure provisioning platform built with Terraform and Terragrunt. This repository defines the strict network boundaries, containerized compute, and relational data storage required to run a highly available web application.
 
-## Project Overview
+## System Architecture
 
-This repository contains Infrastructure as Code (IaC) to provision a multi-environment AWS architecture using Terraform and Terragrunt. The system provides an isolated network topology, containerized compute resources, relational data storage, and a global content delivery network.
-
-## Architecture
-
-```mermaid
+`mermaid
 graph TD
     Client[Client] --> CF[CloudFront CDN]
     Client --> ALB[Application Load Balancer]
@@ -24,55 +20,62 @@ graph TD
         API --> L[AWS Lambda]
         L --> DDB[(DynamoDB)]
     end
-```
+`
 
-The infrastructure uses Terraform to provision the network, compute, security, and monitoring resources. Public traffic enters through the load balancer and CDN, while application resources and databases remain strictly in private subnets.
+## Core Engineering Principles
 
-## Key Components
+*   **Environment Isolation**: Development and Production environments are physically isolated at the VPC level.
+*   **DRY Configuration**: Terragrunt dynamically injects remote state configurations, eliminating duplicated backend blocks across environments.
+*   **State Locking**: Concurrent infrastructure mutations are prevented via DynamoDB state locking.
+*   **Secret Management**: Database credentials are cryptographically generated in memory and injected directly into AWS Secrets Manager. Passwords are never written to disk or hardcoded in .tfvars.
+*   **Zero-Trust Networking**: The ECS Fargate compute tier explicitly drops all ingress traffic except packets originating directly from the Application Load Balancer security group.
+*   **Edge Security**: S3 bucket public access is strictly blocked. Assets are exclusively served through CloudFront via Origin Access Control (OAC) signatures.
 
-| Component | Purpose | Implementation |
+## Proof of Implementation
+
+### Infrastructure Provisioning
+![Terraform Execution Plan](docs/images/terraform-plan.png)
+
+### Network Topology
+![AWS VPC Configuration](docs/images/vpc-config.png)
+
+### Compute Routing
+![ALB Target Group](docs/images/target-group.png)
+
+### Data Tier Security
+![AWS Secrets Manager](docs/images/secrets-manager.png)
+
+## Modules Directory
+
+| Module | Description | Stateful |
 |---|---|---|
-| Network | Network isolation and routing | VPC, Public/Private Subnets, NAT Gateway |
-| Compute | Application workloads | ECS Fargate |
-| Load Balancing | Traffic distribution | Application Load Balancer (ALB) |
-| IAM | Access control | Environment-scoped IAM roles and policies |
-| Database | Relational storage | Amazon RDS (MySQL) |
-| Serverless | Event-driven microservices | API Gateway, AWS Lambda, DynamoDB |
-| Frontend | Static asset delivery | Amazon S3, CloudFront, Origin Access Control |
+| 
+etworking | Multi-AZ VPC, Subnets, IGW, and dynamic NAT Gateways | No |
+| compute | Application Load Balancer, Listeners, and Target Groups | No |
+| containers | ECS Cluster, Fargate Task Definitions, and Services | No |
+| database | RDS Multi-AZ instances, Subnet Groups, and Secrets | Yes |
+| rontend | CloudFront Distributions, OAC, and S3 Buckets | Yes |
+| serverless | API Gateway, Lambda execution roles, and DynamoDB | Yes |
 
-## Infrastructure Design
+## Deployment Operations
 
-*   **Network Topology**: Multi-AZ architecture. The Dev environment utilizes 1 NAT Gateway to optimize costs, while Prod requires 3 NAT Gateways for strict high availability.
-*   **Compute**: Serverless container execution via AWS Fargate. The ECS security group explicitly denies all traffic except ingress from the ALB security group.
-*   **Database**: RDS deployed in private subnets. Credentials are cryptographically generated during provisioning and injected directly into AWS Secrets Manager.
-*   **Frontend**: S3 buckets block all public internet access. Traffic is exclusively routed through CloudFront via Origin Access Control (OAC).
-
-## Deployment
-
-Deployment is orchestrated via Terragrunt to manage remote state inheritance.
-
-```bash
-git clone https://github.com/adeliusa486/terraform-aws-multi-env-platform.git
-cd terraform-aws-multi-env-platform/environments/dev
-
+### Initialization
+`ash
+cd environments/dev
 terragrunt init
+`
+
+### Validation
+`ash
 terragrunt plan
+`
+
+### Execution
+`ash
 terragrunt apply
-```
+`
 
-## Validation
+## Known Limitations
 
-Infrastructure changes are validated automatically via GitHub Actions on pull requests:
-*   `terraform fmt -check`
-*   `terraform validate`
-
-## Limitations
-
-*   **Auto Scaling**: The ECS service relies on a static `desired_count`. Application Auto Scaling based on CPU/Memory metrics is not currently implemented.
-*   **Disaster Recovery**: RDS automated backups are enabled, but cross-region replication is not configured.
-
-## Future Improvements
-
-*   Implement AWS WAF on the Application Load Balancer.
-*   Add tfsec or checkov to the GitHub Actions pipeline for automated security scanning.
-*   Implement Application Auto Scaling for the ECS tasks.
+*   **Application Auto Scaling**: The ECS service currently relies on a static desired_count. CloudWatch metric alarms for dynamic CPU/Memory scaling are not yet implemented.
+*   **Disaster Recovery**: RDS automated backups are enabled with a 7-day retention period, but cross-region replication is excluded from the current baseline.
