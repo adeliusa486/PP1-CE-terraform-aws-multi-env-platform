@@ -1,6 +1,6 @@
 # Enterprise AWS Multi-Environment Infrastructure Platform
 
-[![Infrastructure Validation](https://github.com/adeliusa486/terraform-aws-multi-env-platform/actions/workflows/validation.yml/badge.svg)](https://github.com/adeliusa486/terraform-aws-multi-env-platform/actions/workflows/validation.yml)
+![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white) ![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white) ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white) ![MySQL](https://img.shields.io/badge/mysql-%2300f.svg?style=for-the-badge&logo=mysql&logoColor=white)
 
 This repository contains the complete Infrastructure as Code (IaC) implementation for a highly available, modular, and secure AWS environment. The project is designed to transition legacy, manually configured infrastructure (ClickOps) into a deterministic, version-controlled architecture managed by Terraform and Terragrunt.
 
@@ -152,3 +152,4 @@ terragrunt apply
 ```bash
 terragrunt destroy
 ```
+
