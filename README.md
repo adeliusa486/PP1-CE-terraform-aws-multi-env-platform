@@ -1,81 +1,96 @@
-# Enterprise AWS Infrastructure Platform
+# AWS Multi-Environment Infrastructure Platform
 
-A deterministic, multi-environment infrastructure provisioning platform built with Terraform and Terragrunt. This repository defines the strict network boundaries, containerized compute, and relational data storage required to run a highly available web application.
+[![Infrastructure Validation](https://github.com/adeliusa486/terraform-aws-multi-env-platform/actions/workflows/validation.yml/badge.svg)](https://github.com/adeliusa486/terraform-aws-multi-env-platform/actions/workflows/validation.yml)
 
-## System Architecture
+Welcome to my Infrastructure as Code (IaC) platform. I built this repository to demonstrate how to deploy a modular, production-ready AWS environment from scratch using Terraform and Terragrunt. 
 
-`mermaid
-graph TD
-    Client[Client] --> CF[CloudFront CDN]
-    Client --> ALB[Application Load Balancer]
-    Client --> API[API Gateway]
+The primary goal of this project was to move away from manually provisioning resources in the AWS Console. Instead, the entire infrastructure is treated exactly like application code: version-controlled, peer-reviewed, heavily modularized, and 100% reproducible. 
 
-    subgraph AWS VPC
-        CF --> OAC[Origin Access Control]
-        OAC --> S3[S3 Static Assets]
+## Proof of Deployment
 
-        ALB --> ECS[ECS Fargate Cluster]
-        ECS --> RDS[(RDS MySQL)]
+To verify that this code executes successfully in a real AWS environment, I have included captures of the deployed resources. I used an HTML grid layout below to keep the documentation clean and concise.
 
-        API --> L[AWS Lambda]
-        L --> DDB[(DynamoDB)]
-    end
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/images/vpc-config.png" alt="VPC Configuration" width="100%"><br>
+      <b>Isolated Network Topology (VPC & Subnets)</b>
+    </td>
+    <td align="center">
+      <img src="docs/images/target-group.png" alt="ALB Target Group" width="100%"><br>
+      <b>Application Load Balancer Routing</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/images/s3-state.png" alt="S3 Remote State" width="100%"><br>
+      <b>Encrypted S3 Remote State Bucket</b>
+    </td>
+    <td align="center">
+      <img src="docs/images/terraform-apply.png" alt="Terraform Apply" width="100%"><br>
+      <b>Automated Terraform Provisioning</b>
+    </td>
+  </tr>
+</table>
+
+## How the Repository is Structured
+
+I designed the directory tree to enforce a strict separation between the "logic" (the modules) and the "data" (the environments). This ensures we can spin up a new environment just by passing a different variable file, rather than copying and pasting thousands of lines of HCL.
+
+`	ext
+terraform-aws-multi-env-platform/
++-- environments/
+¦   +-- dev/                  # Development variables and module wiring
+¦   +-- prod/                 # Production variables (High Availability)
+¦   +-- terragrunt.hcl        # Root configuration for S3/DynamoDB state locking
++-- modules/
+¦   +-- networking/           # VPC, Public/Private Subnets, dynamic NAT Gateways
+¦   +-- compute/              # Application Load Balancer and Target Groups
+¦   +-- containers/           # ECS Fargate Cluster, Task Definitions, and Services
+¦   +-- database/             # RDS MySQL instances and Secrets Manager integration
+¦   +-- serverless/           # API Gateway, Lambda functions, and DynamoDB tables
+¦   +-- frontend/             # S3 buckets and CloudFront CDN with OAC
++-- .github/workflows/        # CI/CD pipelines for automated Terraform validation
++-- Makefile                  # Command shortcuts for local deployment
 `
 
-## Core Engineering Principles
+## Architectural Highlights
 
-*   **Environment Isolation**: Development and Production environments are physically isolated at the VPC level.
-*   **DRY Configuration**: Terragrunt dynamically injects remote state configurations, eliminating duplicated backend blocks across environments.
-*   **State Locking**: Concurrent infrastructure mutations are prevented via DynamoDB state locking.
-*   **Secret Management**: Database credentials are cryptographically generated in memory and injected directly into AWS Secrets Manager. Passwords are never written to disk or hardcoded in .tfvars.
-*   **Zero-Trust Networking**: The ECS Fargate compute tier explicitly drops all ingress traffic except packets originating directly from the Application Load Balancer security group.
-*   **Edge Security**: S3 bucket public access is strictly blocked. Assets are exclusively served through CloudFront via Origin Access Control (OAC) signatures.
+When designing this platform, I focused heavily on security, high availability, and cost optimization. 
 
-## Proof of Implementation
+### 1. Network Isolation and Cost Control
+The network topology uses a classic public/private subnet split across multiple Availability Zones. Because NAT Gateways charge an hourly fee, the 
+etworking module accepts a single_nat_gateway boolean variable. This allows the Dev environment to route all traffic through a single NAT to save money, while the Prod environment can deploy a NAT in every AZ for strict redundancy.
 
-### Infrastructure Provisioning
-![Terraform Execution Plan](docs/images/terraform-plan.png)
+### 2. Zero-Trust Compute Tier
+The compute layer runs entirely on serverless AWS Fargate containers. To enforce a Zero-Trust security model, the ECS Security Group is configured to drop all incoming internet traffic. The only packets allowed to reach the containers are those originating explicitly from the Application Load Balancer's Security Group.
 
-### Network Topology
-![AWS VPC Configuration](docs/images/vpc-config.png)
+### 3. Dynamic Secrets Management
+Database passwords are a common attack vector. In this architecture, passwords are never hardcoded, typed into a terminal, or committed to a .tfvars file. Instead, Terraform uses a cryptographic provider to generate a random 16-character string in memory during provisioning, which is then injected directly into AWS Secrets Manager and passed to the RDS instance. 
 
-### Compute Routing
-![ALB Target Group](docs/images/target-group.png)
+### 4. Secured Edge Delivery
+Static frontend assets are hosted in Amazon S3, but the bucket completely blocks public internet access. Global distribution is handled by Amazon CloudFront, which uses an Origin Access Control (OAC) policy to cryptographically sign requests to the bucket. This prevents users from bypassing the CDN.
 
-### Data Tier Security
-![AWS Secrets Manager](docs/images/secrets-manager.png)
+## Deployment Guide
 
-## Modules Directory
+If you want to spin this infrastructure up in your own AWS account, you will need the AWS CLI, Terraform, and Terragrunt installed.
 
-| Module | Description | Stateful |
-|---|---|---|
-| 
-etworking | Multi-AZ VPC, Subnets, IGW, and dynamic NAT Gateways | No |
-| compute | Application Load Balancer, Listeners, and Target Groups | No |
-| containers | ECS Cluster, Fargate Task Definitions, and Services | No |
-| database | RDS Multi-AZ instances, Subnet Groups, and Secrets | Yes |
-| rontend | CloudFront Distributions, OAC, and S3 Buckets | Yes |
-| serverless | API Gateway, Lambda execution roles, and DynamoDB | Yes |
+1. Authenticate your terminal with your AWS IAM credentials.
+2. Navigate to the desired environment:
+   `ash
+   cd environments/dev
+   `
+3. Initialize the remote state backend (S3 and DynamoDB):
+   `ash
+   terragrunt init
+   `
+4. Review the infrastructure plan:
+   `ash
+   terragrunt plan
+   `
+5. Provision the resources:
+   `ash
+   terragrunt apply
+   `
 
-## Deployment Operations
-
-### Initialization
-`ash
-cd environments/dev
-terragrunt init
-`
-
-### Validation
-`ash
-terragrunt plan
-`
-
-### Execution
-`ash
-terragrunt apply
-`
-
-## Known Limitations
-
-*   **Application Auto Scaling**: The ECS service currently relies on a static desired_count. CloudWatch metric alarms for dynamic CPU/Memory scaling are not yet implemented.
-*   **Disaster Recovery**: RDS automated backups are enabled with a 7-day retention period, but cross-region replication is excluded from the current baseline.
+Always remember to run 	erragrunt destroy when you are finished testing to prevent unexpected AWS billing charges.
